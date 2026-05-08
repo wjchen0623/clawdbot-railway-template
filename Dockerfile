@@ -22,7 +22,7 @@ WORKDIR /openclaw
 
 # Pin to a known-good ref (tag/branch). Override in Railway template settings if needed.
 # Using a released tag avoids build breakage when `main` temporarily references unpublished packages.
-ARG OPENCLAW_GIT_REF
+ARG OPENCLAW_GIT_REF=v2026.5.4
 RUN git clone --depth 1 --branch "${OPENCLAW_GIT_REF}" https://github.com/openclaw/openclaw.git .
 
 # Patch: relax version requirements for packages that may reference unpublished versions.
@@ -32,6 +32,9 @@ RUN set -eux; \
     sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*">=[^"]+"/"openclaw": "*"/g' "$f"; \
     sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*"workspace:[^"]+"/"openclaw": "*"/g' "$f"; \
   done
+
+# Patch: allow freshly published AWS SDK packages used by the pinned OpenClaw release.
+RUN python3 -c 'from pathlib import Path; p = Path("pnpm-workspace.yaml"); text = p.read_text(); marker = "minimumReleaseAgeExclude:\n"; additions = [" - \"@aws-sdk/client-bedrock\"", " - \"@aws-sdk/client-bedrock-runtime\""]; missing = [entry for entry in additions if entry not in text]; assert marker in text, "pnpm-workspace.yaml missing minimumReleaseAgeExclude"; p.write_text(text.replace(marker, marker + "".join(entry + "\n" for entry in missing), 1))'
 
 RUN pnpm install --no-frozen-lockfile
 RUN pnpm build
