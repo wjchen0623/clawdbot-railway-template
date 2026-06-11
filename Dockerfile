@@ -34,7 +34,7 @@ RUN set -eux; \
   done
 
 # Patch: allow freshly published AWS SDK packages used by the pinned OpenClaw release.
-RUN python3 -c 'from pathlib import Path; p = Path("pnpm-workspace.yaml"); text = p.read_text(); marker = "minimumReleaseAgeExclude:\n"; additions = [" - \"@aws-sdk/client-bedrock\"", " - \"@aws-sdk/client-bedrock-runtime\""]; missing = [entry for entry in additions if entry not in text]; assert marker in text, "pnpm-workspace.yaml missing minimumReleaseAgeExclude"; p.write_text(text.replace(marker, marker + "".join(entry + "\n" for entry in missing), 1))'
+RUN python3 -c 'from pathlib import Path; p = Path("pnpm-workspace.yaml"); lines = p.read_text().splitlines(); marker = lines.index("minimumReleaseAgeExclude:"); indent = next((line[:line.index("-")] for line in lines[marker + 1:] if line.lstrip().startswith("-")), "  "); packages = ["@aws-sdk/client-bedrock", "@aws-sdk/client-bedrock-runtime"]; missing = [pkg for pkg in packages if not any(f"\"{pkg}\"" in line or f"\"{pkg}@" in line for line in lines)]; lines[marker + 1:marker + 1] = [f"{indent}- \"{pkg}\"" for pkg in missing]; p.write_text("\n".join(lines) + "\n")'
 
 RUN pnpm install --no-frozen-lockfile
 RUN pnpm build
